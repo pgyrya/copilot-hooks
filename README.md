@@ -1,6 +1,6 @@
 # Effective Agentic Development with Copilot
 
-The objective of this repo is to share best practices around how we can make local agentic development with Copilot more effective.
+The objective of this repo is to share best practices around how we can make local agentic development with VS Code Copilot more effective.
 
 It has grown out of initial frustration with agentic systems claiming the work is done when it is anything but done.
 
@@ -10,7 +10,7 @@ This repo contains [general copilot instructions](./copilot-instructions.md), al
 
 While the instructions were carefully designed, the evolution of this repository itself was done with AI-assisted coding to verify that the general instructions, guided by user prompts -  do in fact iteratively lead to a meaningful improvement in the repo structure and content.
 
-
 ## Setup
 
 To benefit from this functionaliy, please clone the contents of this repo into `~/.copilot` folder.
+
