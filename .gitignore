@@ -1,0 +1,5 @@
+hooks/.state/
+logs/
+session-state/
+ide/
+config.json
