@@ -22,6 +22,8 @@
   - future maintainers who will work on the project after you
   - the project general coding and documentation practices
   - whether the naming convention is intuitive
+  - whether it can be guaranteed that the existing test fully represent the expected interaction with the feature (and what might be missing)
+    - if something is missing from automated tests, consider proposing simple logical workflow that, when followed by a subagent - can verify the key untested functionality without human intervention
 - Consider possible refactoring opportunities to improve code quality, intuitiveness, maintainability, and alignment with project standards.
 - Make sure the materials created are properly referenced in the documentation and code comments where applicable.
   - Also make sure the materials that are no longer relevant are no longer referenced.
