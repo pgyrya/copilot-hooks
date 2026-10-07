@@ -12,4 +12,4 @@
 - test and repair edge cases when detecting repeating messages
 - Consider adding state file cleanup mechanism to remove stale state files (hooks use JSON state files keyed by session hash — stale files from old sessions accumulate over time)
 - Consider adding a separate, non-critical logging mechanism (outside try-catch blocks) for debugging hook state changes
-- Add test to validate that config command paths resolve to existing files (currently only checks config structure)
+- Add a test that parses each hook-root JSON config and verifies its command points to an existing hook script. Current configuration tests check registration/structure but do not catch a typo or stale script path, which would otherwise only surface when VS Code tries to run the hook. Keep the test portable across user home directories.
