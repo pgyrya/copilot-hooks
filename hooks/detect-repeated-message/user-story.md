@@ -1,9 +1,13 @@
 # Detect repeating message
 
 Highly quantized local models tend to struggle with long context windows, occasionally getting into loops.
-We'd like to make the agent know when it is getting into a loop, specifically, when the agent produces two identical consecutive assistant tool call messages.
 
-We'd like to interrupt this behavior, and ideally highlight it to the agent to give it a chance to recover.
+We'd like to make the agent know when it is getting into a loop, specifically, 
+
+- (Done) when the agent produces two identical consecutive assistant tool call messages.
+- (TODO) When the sequence of up to 3 messages repeat
+
+We'd like to interrupt this behavior, and ideally highlight it to the agent to give it a chance to recover (e.g. asking a subagent for help).
 
 ## Design
 

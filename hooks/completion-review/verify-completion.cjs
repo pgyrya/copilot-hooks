@@ -18,9 +18,9 @@ const path = require('node:path');
  * {
  *   "session_id": "sha256-hash-of-session",
  *   "cycle": 0,              // Current cycle count (0 to REVIEW_CYCLES_PER_USER_MESSAGE)
- *   "prompt_hash": "sha256-hash", // Hash of the prompt text
+ *   "prompt_hash": "sha256-hash", // Hash of the prompt text (null if no prompt provided)
  *   "prompt_submitted_at": "ISO-8601-timestamp",
- *   "stop_at": "ISO-8601-timestamp"  // Added on Stop events
+ *   "updated_at": "ISO-8601-timestamp"
  * }
  * 
  * State File Location: ~/.copilot/hooks/.state/completion-{session_key}.json
@@ -32,7 +32,7 @@ const path = require('node:path');
  * @module verify-completion
  */
 
-const REVIEW_CYCLES_PER_USER_MESSAGE = 3;
+const REVIEW_CYCLES_PER_USER_MESSAGE = 2; // Number of Stop events to block before allowing completion (~5 review cycles per user message)
 const INSTRUCTIONS_FILE = path.join(
   os.homedir(),
   '.copilot',
@@ -110,7 +110,7 @@ function isValidState(state) {
  */
 function handleUserPromptSubmit(event, stateFile) {
   const promptHash = hashPrompt(event.prompt);
-  let stateWarning;
+  let stateWarning = undefined; // Set when state is reset; used in block response return
 
   // Check if state file exists and read it
   let previousState = null;
@@ -139,7 +139,8 @@ function handleUserPromptSubmit(event, stateFile) {
       session_id: event.session_id,
       cycle: 0,
       prompt_hash: promptHash,
-      prompt_submitted_at: new Date().toISOString()
+      prompt_submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
     return { continue: true, systemMessage: stateWarning };
   }
@@ -151,7 +152,8 @@ function handleUserPromptSubmit(event, stateFile) {
       session_id: event.session_id,
       cycle: 0,
       prompt_hash: promptHash,
-      prompt_submitted_at: new Date().toISOString()
+      prompt_submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
     return { continue: true, systemMessage: stateWarning };
   }
@@ -167,41 +169,52 @@ function handleUserPromptSubmit(event, stateFile) {
         session_id: event.session_id,
         cycle: 0,
         prompt_hash: promptHash,
-        prompt_submitted_at: new Date().toISOString()
+        prompt_submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
     } else {
       // New prompt with incomplete cycle — preserve cycle but update prompt_hash
       const updatedState = {
         ...previousState,
         prompt_hash: promptHash,
-        prompt_submitted_at: new Date().toISOString()
+        prompt_submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       writeState(stateFile, updatedState);
     }
   }
-  // Same prompt — preserve existing cycle (no state change needed)
 
   return { continue: true };
 }
 
 /**
  * Handle Stop event — increment cycle and decide whether to block or allow.
+ *
+ * Return Values:
+ * - At max cycles:  { continue: true }  // No hookSpecificOutput signals "proceed"
+ * - Blocked:        { continue: true, hookSpecificOutput: { hookEventName: 'Stop', decision: 'block', reason } }
+ * - Error:          { continue: true, systemMessage: '...' }
  */
 function handleStop(event, stateFile) {
   // Load or initialize state
   let state = readState(stateFile);
-  let stateWarning;
+  let stateWarning = undefined; // Set when state is reset; included in block return via spread operator
   
   if (!state || state.session_id !== event.session_id || !isValidState(state)) {
     // If state exists but is invalid (e.g., cycle out of range), warn
     if (state && !isValidState(state)) {
-      stateWarning = `Completion hook reset invalid review-cycle state before processing this stop: cycle ${state.cycle} exceeds maximum ${REVIEW_CYCLES_PER_USER_MESSAGE}`;
+      if (!Number.isInteger(state.cycle)) {
+        stateWarning = `Completion hook reset invalid state before processing this stop: cycle value '${state.cycle}' is not a valid integer`;
+      } else if (state.cycle < 0 || state.cycle > REVIEW_CYCLES_PER_USER_MESSAGE) {
+        stateWarning = `Completion hook reset invalid state before processing this stop: cycle ${state.cycle} is out of range [0, ${REVIEW_CYCLES_PER_USER_MESSAGE}]`;
+      }
     }
     state = {
       session_id: event.session_id,
       cycle: 0,
       prompt_hash: null,
-      prompt_submitted_at: new Date().toISOString()
+      prompt_submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
   }
 
@@ -251,7 +264,11 @@ function handleStop(event, stateFile) {
   state.updated_at = new Date().toISOString();
   writeState(stateFile, state);
 
-  const decision = state.cycle <= REVIEW_CYCLES_PER_USER_MESSAGE ? 'block' : 'allow';
+  // At this point cycle <= REVIEW_CYCLES_PER_USER_MESSAGE (early return above),
+  // so decision is always 'block' — no 'allow' path exists after cycle increment.
+  // The 'decision' field is retained for API compatibility with the hook system
+  // which expects a decision field in hookSpecificOutput for Stop events.
+  const decision = 'block';
   const reason = `
 GENERAL-PRACTICE REVIEW REQUIRED — CYCLE ${state.cycle}/${REVIEW_CYCLES_PER_USER_MESSAGE}
 

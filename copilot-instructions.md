@@ -15,3 +15,4 @@
   - Avoid duplication of the information - prefer linking specific documents (code, docs in the subfolder for specific information that may evolve)
   - if the information appears somewhere, it should be clear for the future maintainers to go and update it when making changes - e.g. add a small note to CONTRIBUTING.md around where different type of information belongs
   - It is good to document what is mentioned in the general practices of the repo (instructions for the agents)
+- When you get lost in the weeds, take a step back and review the overall goals and high-level design to regain perspective.

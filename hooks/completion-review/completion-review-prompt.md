@@ -15,6 +15,9 @@ Before calling the task complete, ask a subagent to critically review your contr
   - if something is missing from automated tests, consider writing down a simple logical workflow that, when followed by a subagent - can verify the key untested functionality without human intervention - this process should be simple, safe and reliable.
   - when working on a feature as an agent, you could then go through this manual testing process to ensure the feature behaves as expected. If bugs appear, you must plan to create automatic tests that reproduce the issue and verify the fix.
 - possible refactoring opportunities to improve code quality, intuitiveness, maintainability, and alignment with project standards.
+- whether the project documentation readable and up to date?
+  - does it reflects the current implementation?
+  - is this documentation readable and is it simple to digest (e.g. does it follow a logical flow)?
 
 Give it the relevant session/task context and ask for concrete gaps or risks, not a generic approval.
 
