@@ -4,6 +4,8 @@ We need specific verifiable evidence that you have addressed user expectations t
 
 Please also keep a consistent checklist across this workflow using todo tool for transparency, removing things that are not done byt no longer relevant, while keeping what was done and what is still to be done.
 
+Please focus on a single cycle review as instructed below, then call it done - this way this harness can provide you specific instructions/reminders for the next phase.
+
 ## Cycle 1: Revisit the goals
 
 Take a step back to reflect on what is expected:
@@ -15,7 +17,7 @@ Take a step back to reflect on what is expected:
 
 Now suppose the user comes back and says: "this does not work."
 
-1. Define expected behavior: In one sentence each, write the invariants the work must uphold (what must be true no matter what else happens).
+1. Define expected behavior: In one sentence each, write the invariants the work must uphold (what must be true no matter what else happens) - infer these from user stated objectives and inferred intent.
 2. Identify potential verification blind spots. List at least 3 most likely reasons the user would be right. Prefer things you did not control or observe: inputs, events, ordering, existing state, other tools/harnesses, real files. Look for real evidence (logs, traces, actual command output) before reasoning from memory.
 3. Verify whether blind spots have issues. For each, run a manual check and/or (ideally) write a test that would fail if the suspicion were true. Show: suspicion | what you ran | result.
 4. Fix what fails and verify. A fix needs a test that failed before it. If a suspicion cannot be checked here, say so and add it to TODO.

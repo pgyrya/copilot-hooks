@@ -75,6 +75,9 @@ The module exports the following functions for testing:
 
 ## Known limitations / not covered
 
+- The objective and intent the agent infers in cycle 1 - may be inferred from the entire conversation, not just the last cycle
+- Sometimes the agent was going through review cycle 2 and 3 if they have already seen the entire review cycle in the same conversation - this is addressed by clarifying instructions to focus on a single round of review
+- subagent review may spend time / resources including evicting KV cache which significantly slows down response time on a single machine with little VRAM headroom - however it seems like a good trade-off for a good "peer review". Potential solution - delegate peer review to another model (may cost some money).
 - No file locking on the state file (one Copilot process per session is assumed).
 - A missing or empty `completion-review-prompt.md` is not tested (the prompt path is fixed next to the script).
 - Behaviour in harnesses other than VS Code is untested; they must provide `stop_hook_active`.

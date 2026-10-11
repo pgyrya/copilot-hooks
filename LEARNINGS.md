@@ -10,3 +10,5 @@
 - **Docker container filesystem is ephemeral**: Changes applied to a running container (e.g., patching Python files) are lost on restart. Always bake patches into the Docker image via Dockerfile COPY+RUN steps.
 
 - **Pre-mortem testing is essential for UAT readiness**: Before declaring something "ready for users," systematically try to break it by testing failure modes (restarts, concurrent sessions, edge cases, network issues). This catches "critical surprises" before they reach users.
+
+- **Completion review cycle (3 cycles) is effective for complex fixes**: CYCLE 1 (revisit goals), CYCLE 2 (verify expectations with invariants + break-tests), CYCLE 3 (document, polish, respond) ensures thorough verification. Key insight: always run break-tests that deliberately try to break your fixes with edge cases.
