@@ -1,12 +1,5 @@
 {
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "type": "command",
-        "command": "node ~/.copilot/hooks/completion-review/verify-completion.cjs",
-        "timeout": 10
-      }
-    ],
     "Stop": [
       {
         "type": "command",

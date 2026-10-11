@@ -4,6 +4,13 @@ Please only keep a high-level note on the most relevant changes in this log, org
 
 ## Changes
 
+### 2026-10-07 — Completion review hook: fix endless `1/2 → 2/2 → 1/2` blocking
+- **Bug**: the agent was blocked indefinitely. The hook restarted its cycle count on any `UserPromptSubmit` with a new prompt once the last cycle was reached, but VS Code also fires `UserPromptSubmit` for the subagent prompts the review itself asks for (visible in the *GitHub Copilot Chat Hooks* log: 103 restarts vs 3 allowed stops across recorded sessions). The earlier "preserve incomplete cycle" patches only hid it for cycles below the maximum.
+- **Fix**: the hook now counts only `Stop` events and uses the harness-provided `stop_hook_active` flag to detect a new turn; `UserPromptSubmit` is no longer registered. Fails open if the flag is missing.
+- **Review prompt**: now one short section per cycle (try to break it / close out) instead of the same long checklist each time.
+- **Instructions**: replaced "develop a narrative that tests are sufficient" in `copilot-instructions.md` with invariants + pre-mortem + mutation check.
+- **Tests**: ~40 enumerating tests replaced by invariant, trace-replay and mutation-checked tests (see top of `verify-completion.test.cjs`); config test now also checks that hook commands point to existing scripts.
+
 ### Completion Review Hook — Second Subagent Review (Current Session)
 - **Trigger**: General practice review at cycle 5/5, second subagent launched for critical review
 - **Critical Fix**: Removed test count assertion (`assert.equal(39, 39, 'Test count must match user-story.md')`) — identified as anti-pattern; test counts should be verified by reading the test runner output, not by hardcoding expected counts in assertions

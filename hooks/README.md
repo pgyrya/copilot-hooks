@@ -6,7 +6,7 @@ VS Code Copilot hooks that run during the coding session to enforce general prac
 
 The hooks are organized by feature for easier navigation. Each feature folder contains:
 
-- `user-story.md` — User story and testing narrative (entry point)
+- `user-story.md` — User story, design and testing approach (entry point)
 - `*.cjs` — Hook implementation
 - `*.test.cjs` — Test file (named to match the hook)
 - `*.md` — Configurable prompts or instructions
@@ -19,7 +19,7 @@ Let's consider [completion-review](completion-review/) as an example of a useful
 
 Here is how the folder is organized:
 
-- [verify-completion.cjs](completion-review/verify-completion.cjs) — Manages review cycles for general practices. Blocks Stop events until N review cycles are completed per user message (see top of the file for configuration).
+- [verify-completion.cjs](completion-review/verify-completion.cjs) — Manages review cycles for general practices. Blocks the first N Stop events of each agent turn (see top of the file for configuration).
 - [User Story](completion-review/user-story.md)
 - [Tests](completion-review/verify-completion.test.cjs)
 
