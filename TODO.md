@@ -7,9 +7,11 @@
 - Find a way to better insist on tests being comprehensive - perhaps as part of independent review instructions
 - Help the agent understand which changes are worth doing vs. postpoing - i.e. based on the scope of the original request.
 
+- Verify the new completion-review hook in a live VS Code session (see "Live check" in [user-story](hooks/completion-review/user-story.md)) and confirm `stop_hook_active` behaves as in the recorded logs when a user message arrives mid-review.
+- The review still asks the agent to brief a subagent itself; the brief has been author-biased ("verify everything is solid"). Consider generating the brief from the hook (user request verbatim + invariants) as part of the existing "review automatically from the stop hook" idea above.
+
 ## Low Priority
 
 - test and repair edge cases when detecting repeating messages
 - Consider adding state file cleanup mechanism to remove stale state files (hooks use JSON state files keyed by session hash — stale files from old sessions accumulate over time)
 - Consider adding a separate, non-critical logging mechanism (outside try-catch blocks) for debugging hook state changes
-- Add a test that parses each hook-root JSON config and verifies its command points to an existing hook script. Current configuration tests check registration/structure but do not catch a typo or stale script path, which would otherwise only surface when VS Code tries to run the hook. Keep the test portable across user home directories.

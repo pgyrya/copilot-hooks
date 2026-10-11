@@ -3,9 +3,10 @@
 
 - Follow the general coding and documentation practices established in each project / repository - see e.g. corresponding `AGENTS.md`, `README.md`, `CONTRIBUTING.md` and inspect existing examples to align with the best practices
 - Always verify your work for accuracy and completeness.
-  - aim for thorough test suite: for testing to be considered complete you should develop a narrative to verify whether the tests are sufficient to ensure the expected behavior - this narrative should be independently verifiable and should live either in testing files or the corresponding documentation.
+  - before calling work done, try to disprove it: (1) write each invariant the work must uphold in one sentence (what must hold no matter what else happens); (2) pre-mortem - suppose the user says "this does not work": list the 3 likeliest causes, especially assumptions about inputs, events, ordering or other systems that you did not observe, and check them against real logs/traces/files where they exist; (3) each test must trace to an invariant or to an observed failure - prefer a few high-signal tests (trace replay, property checks) over many enumerations; (4) break the code on purpose and confirm a test fails.
+  - do not write "why this is sufficient" essays or test counts; keep a short "invariant -> test" list next to the tests.
   - it is 100x better to thoroughly plan and call out any incompletion than to pretend the work is complete.
-  - consider to test manually first (using the full suite of tools available to you), then translate the key checks (especially those that show issues) - into automated tests.
+  - test manually first (using the full suite of tools available to you), then translate the key checks (especially those that show issues) - into automated tests; when a bug shows up in real use, add the real event sequence as a test.
 - Use todo tool to keep track of tasks that need to be completed or revisited.
   - The todo items should be clear, actionable, and regularly updated to reflect the current status of tasks.
 - Also log the work envisioned in the repository according to the established practices and documentation guidelines.

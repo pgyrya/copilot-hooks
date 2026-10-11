@@ -5,3 +5,8 @@
 - While a significant context size is necessary to explain LLM how to use tools - the quality of response can reduce as this context gets filled up with instructions and information. 
     - It may be better to configure the model to use smaller context size (and have more regular history compactification)
     - Perhaps tool calling harness should evolve to remove most of the tools context from initial prompting, instead adopting just-in-time loading
+- A test suite written from the author's mental model of the harness can be large and green while the harness behaves differently. Record real traces (VS Code *GitHub Copilot Chat Hooks* log shows every hook input/output) and replay them; ask for invariants and a pre-mortem ("the user says it doesn't work - why?") rather than a narrative of why the tests are sufficient, which invites advocacy and goes stale.
+
+- **Docker container filesystem is ephemeral**: Changes applied to a running container (e.g., patching Python files) are lost on restart. Always bake patches into the Docker image via Dockerfile COPY+RUN steps.
+
+- **Pre-mortem testing is essential for UAT readiness**: Before declaring something "ready for users," systematically try to break it by testing failure modes (restarts, concurrent sessions, edge cases, network issues). This catches "critical surprises" before they reach users.
