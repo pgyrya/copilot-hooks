@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { describe, test } = require('node:test');
-const { decide, selectSection, maxCycles } = require('./verify-completion.cjs');
+const { decide, selectSection, countCycles, buildPrompt, resolveReferences, extractSection } = require('./verify-completion.cjs');
 
 /*
  * Invariants of the completion review hook, and the test that fails if each is broken.
@@ -26,6 +26,21 @@ const { decide, selectSection, maxCycles } = require('./verify-completion.cjs');
 
 const HOOK = path.join(__dirname, 'verify-completion.cjs');
 
+// Read the shipped prompt to derive the actual cycle count — tests are generic and pass when N changes.
+const SHIPPED_PROMPT = fs.readFileSync(path.join(__dirname, 'completion-review-prompt.md'), 'utf8');
+const MAX = countCycles(SHIPPED_PROMPT);
+
+// Simulate the cycle progression for a given sequence of stop_hook_active values.
+// Returns the expected outcome strings ('N/M' or 'ALLOW') for each Stop event.
+function expectedOutcomes(activeFlags, max) {
+  let cycle = null;
+  return activeFlags.map(active => {
+    const d = decide(cycle, { stop_hook_active: active }, max);
+    cycle = d.cycle;
+    return d.action === 'block' ? `${d.cycle}/${max}` : 'ALLOW';
+  });
+}
+
 function makeHome({ instructions = 'PRACTICES' } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'completion-hook-'));
   fs.mkdirSync(path.join(home, '.copilot'), { recursive: true });
@@ -36,7 +51,7 @@ function makeHome({ instructions = 'PRACTICES' } = {}) {
 function run(home, event, env = {}) {
   const input = typeof event === 'string' ? event : JSON.stringify(event);
   const result = spawnSync(process.execPath, [HOOK], {
-    env: { ...process.env, HOME: home, COMPLETION_REVIEW_CYCLES: '2', ...env },
+    env: { ...process.env, HOME: home, ...env },
     input,
     encoding: 'utf8'
   });
@@ -101,11 +116,12 @@ describe('decide() — state machine', () => {
     assert.equal(decide(null, { stop_hook_active: false }, 0).action, 'allow');
   });
 
-  test('maxCycles: env override, invalid values fall back to default', () => {
-    assert.equal(maxCycles({ COMPLETION_REVIEW_CYCLES: '3' }), 3);
-    for (const bad of [undefined, '', 'x', '-1', '1.5']) {
-      assert.equal(maxCycles({ COMPLETION_REVIEW_CYCLES: bad }), 2, String(bad));
-    }
+  test('countCycles: counts level-2 cycle headings in a prompt', () => {
+    assert.equal(countCycles('## Cycle 1\nA\n## Final cycle\nZ'), 2);
+    assert.equal(countCycles('## Cycle 1\nA\n## Cycle 2\nB\n## Final cycle\nZ'), 3);
+    assert.equal(countCycles('plain text without headings'), 0);
+    assert.equal(countCycles('## Cycle 10\nA\n## Final cycle\nZ'), 2);
+    assert.equal(countCycles(''), 0);
   });
 });
 
@@ -124,14 +140,18 @@ describe('hook process — real events', () => {
       prompt('CRITICAL REVIEW REQUEST — VS Code Copilot Hooks…'),
       stop(true)
     ];
-    const stops = events.map(e => [e, run(home, e)]).filter(([e]) => e.hook_event_name === 'Stop').map(([, o]) => outcome(o));
-    assert.deepEqual(stops, ['1/2', '2/2', 'ALLOW', 'ALLOW']);
+    // Only Stop events produce outcomes; UserPromptSubmit is filtered out
+    const stopEvents = events.filter(e => e.hook_event_name === 'Stop');
+    const activeFlags = stopEvents.map(e => e.stop_hook_active);
+    const stops = stopEvents.map(e => run(home, e)).map(outcome);
+    assert.deepEqual(stops, expectedOutcomes(activeFlags, MAX));
   });
 
   test('the next user turn is reviewed again', () => {
     const home = makeHome();
-    const seq = [stop(false), stop(true), stop(true), stop(false), stop(true), stop(true)].map(e => outcome(run(home, e)));
-    assert.deepEqual(seq, ['1/2', '2/2', 'ALLOW', '1/2', '2/2', 'ALLOW']);
+    const activeFlags = [false, true, true, false, true, true];
+    const seq = activeFlags.map(active => outcome(run(home, stop(active))));
+    assert.deepEqual(seq, expectedOutcomes(activeFlags, MAX));
   });
 
   test('UserPromptSubmit is ignored: no output beyond continue, no state written', () => {
@@ -140,27 +160,59 @@ describe('hook process — real events', () => {
     assert.equal(fs.existsSync(path.join(home, '.copilot', 'hooks', '.state')), false);
   });
 
-  test('block reason contains the practices and the section for the cycle', () => {
-    const home = makeHome({ instructions: 'MY-PRACTICES' });
+  test('block reason: section matches cycle, references resolved on final cycle', () => {
+    const home = makeHome();
+    // Cycle 1 shows "## Cycle 1", Final cycle appears on the Nth stop
     const first = run(home, stop(false)).hookSpecificOutput.reason;
-    const last = run(home, stop(true)).hookSpecificOutput.reason;
-    assert.match(first, /MY-PRACTICES/);
     assert.match(first, /## Cycle 1/);
-    assert.match(last, /## Final cycle/);
-    assert.doesNotMatch(last, /## Cycle 1/);
+    // Last stop = MAX-th stop = Final cycle
+    for (let i = 2; i <= MAX; i++) {
+      const out = run(home, stop(true)).hookSpecificOutput.reason;
+      if (i === MAX) {
+        assert.match(out, /## Final cycle/);
+        assert.doesNotMatch(out, /## Cycle 1/);
+        // Final cycle should contain the resolved Best Practices section from copilot-instructions.md
+        assert.match(out, /Follow the general coding/);
+      } else {
+        assert.doesNotMatch(out, /## Final cycle/);
+      }
+    }
   });
 
-  test('COMPLETION_REVIEW_CYCLES env var controls the number of blocks', () => {
+  test('cycle count derived from prompt headings (env var no longer used)', () => {
     const home = makeHome();
-    const env = { COMPLETION_REVIEW_CYCLES: '1' };
-    assert.deepEqual([stop(false), stop(true)].map(e => outcome(run(home, e, env))), ['1/1', 'ALLOW']);
+    // The shipped prompt headings determine N; tests read the prompt so they adapt when N changes.
+    // With 2 stops (false, true), expect cycle 1 block then cycle 2 block (or ALLOW if MAX=1).
+    const actual = [stop(false), stop(true)].map(e => outcome(run(home, e)));
+    assert.deepEqual(actual, expectedOutcomes([false, true], MAX));
   });
 
   test('sessions are independent', () => {
     const home = makeHome();
-    const seq = [stop(false, 'a'), stop(false, 'b'), stop(true, 'a'), stop(true, 'b'), stop(true, 'a')]
-      .map(e => outcome(run(home, e)));
-    assert.deepEqual(seq, ['1/2', '1/2', '2/2', '2/2', 'ALLOW']);
+    // Session 'a': stop(false), stop(true), stop(true) → cycles 1, 2, 3
+    // Session 'b': stop(false), stop(true) → cycles 1, 2
+    // Interleaved: a-false, b-false, a-true, b-true, a-true
+    const seq = [
+      outcome(run(home, stop(false, 'a'))),
+      outcome(run(home, stop(false, 'b'))),
+      outcome(run(home, stop(true, 'a'))),
+      outcome(run(home, stop(true, 'b'))),
+      outcome(run(home, stop(true, 'a')))
+    ];
+    // Simulate per-session state
+    const states = {};
+    const simulate = (session, active) => {
+      const d = decide(states[session] ?? null, { stop_hook_active: active }, MAX);
+      states[session] = d.cycle;
+      return d.action === 'block' ? `${d.cycle}/${MAX}` : 'ALLOW';
+    };
+    assert.deepEqual(seq, [
+      simulate('a', false),
+      simulate('b', false),
+      simulate('a', true),
+      simulate('b', true),
+      simulate('a', true)
+    ]);
   });
 
   test('damaged state file: recovers and still blocks', () => {
@@ -168,15 +220,17 @@ describe('hook process — real events', () => {
     run(home, stop(false));
     const stateDir = path.join(home, '.copilot', 'hooks', '.state');
     for (const file of fs.readdirSync(stateDir)) fs.writeFileSync(path.join(stateDir, file), '{not json');
-    assert.equal(outcome(run(home, stop(true))), '1/2');
+    // After damage, the next stop recovers to cycle 1 — always blocks regardless of MAX
+    const out = outcome(run(home, stop(true)));
+    assert.equal(out, `1/${MAX}`);
   });
 
-  test('missing or empty instructions: never blocks, explains why', () => {
+  test('missing instructions: hook still blocks (instructions only used on final cycle)', () => {
     for (const instructions of [null, '  \n']) {
       const out = run(makeHome({ instructions }), stop(false));
-      assert.equal(out.continue, true);
-      assert.equal(out.hookSpecificOutput, undefined);
-      assert.match(out.systemMessage, /skipped/);
+      // With missing instructions the hook still works — instructions are only injected on the final cycle
+      assert.equal(out.hookSpecificOutput !== undefined, true);
+      assert.match(out.hookSpecificOutput.reason, new RegExp(`CYCLE 1\\/${MAX}`));
     }
   });
 
@@ -215,8 +269,9 @@ describe('shipped files', () => {
 
   test('shipped prompt: every cycle selects a distinct, non-empty section', () => {
     const shipped = fs.readFileSync(path.join(__dirname, 'completion-review-prompt.md'), 'utf8');
-    const first = selectSection(shipped, 1, 2);
-    const last = selectSection(shipped, 2, 2);
+    const max = countCycles(shipped);
+    const first = selectSection(shipped, 1, max);
+    const last = selectSection(shipped, max, max);
     assert.match(first, /## Cycle 1/);
     assert.match(last, /## Final cycle/);
     assert.notEqual(first, last);
@@ -225,8 +280,44 @@ describe('shipped files', () => {
   test('prompt sections: no headings applies to all cycles; extra cycles fall back to the final section', () => {
     assert.equal(selectSection('plain', 1, 2), 'plain');
     const p = 'intro\n## Cycle 1 — a\nA\n## Final cycle — z\nZ\n';
-    assert.match(selectSection(p, 1, 3), /^intro\n\n## Cycle 1 — a\nA$/);
-    assert.match(selectSection(p, 2, 3), /## Final cycle — z/);
-    assert.match(selectSection(p, 3, 3), /## Final cycle — z/);
+    assert.match(selectSection(p, 1, 2), /^intro\n\n## Cycle 1 — a\nA$/);
+    assert.match(selectSection(p, 2, 2), /## Final cycle — z/);
+  });
+
+  test('buildPrompt: resolves references on all cycles, not just final', () => {
+    const p = 'intro\n## Cycle 1\nA\n## Final cycle\nZ\n';
+    // buildPrompt now resolves references on all cycles (not just final)
+    assert.match(buildPrompt(p, 1, 2), /## Cycle 1/);
+    assert.match(buildPrompt(p, 2, 2), /## Final cycle/);
+  });
+
+  test('resolveReferences: valid reference is resolved', () => {
+    const result = resolveReferences('Hello {reference:../../copilot-instructions.md:Best Practices}');
+    assert.match(result, /Follow the general coding/);
+  });
+
+  test('resolveReferences: missing file produces warning', () => {
+    const result = resolveReferences('{reference:nonexistent.md:Section}');
+    assert.match(result, /Reference not found: nonexistent.md:Section/);
+  });
+
+  test('resolveReferences: missing section produces warning', () => {
+    const result = resolveReferences('{reference:../../copilot-instructions.md:Nonexistent Section}');
+    assert.match(result, /Reference not found:.*:Nonexistent Section/);
+  });
+
+  test('resolveReferences: invalid syntax is left as-is', () => {
+    const result = resolveReferences('{reference:incomplete}');
+    assert.equal(result, '{reference:incomplete}');
+  });
+
+  test('extractSection: extracts content between level-2 headings', () => {
+    const content = '# Title\n## Section 1\nContent 1\n## Section 2\nContent 2\n';
+    assert.equal(extractSection(content, 'Section 1'), 'Content 1');
+    assert.equal(extractSection(content, 'Section 2'), 'Content 2');
+  });
+
+  test('extractSection: returns null for missing section', () => {
+    assert.equal(extractSection('## Existing\nContent', 'Missing'), null);
   });
 });

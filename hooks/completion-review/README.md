@@ -25,5 +25,5 @@ node --test verify-completion.test.cjs
 
 ## Test manually
 
-1. Configure the number of review iterations in [verify-completion.cjs](verify-completion.cjs) (or set `COMPLETION_REVIEW_CYCLES`)
-2. Trigger Copilot Chat session in VS Code and observed "Blocked by Stop Hook" behavior.
+1. Configure the number of review iterations by editing [completion-review-prompt.md](completion-review-prompt.md) (add or remove `## Cycle N` / `## Final cycle` headings).
+2. Trigger Copilot Chat session in VS Code and observe "Blocked by Stop Hook" behavior.

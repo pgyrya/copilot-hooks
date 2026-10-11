@@ -13,14 +13,13 @@ const path = require('node:path');
  * for subagent prompts in the same session, so it cannot identify a user message.
  */
 
-const DEFAULT_REVIEW_CYCLES = 2;
 const HOME = os.homedir();
-const INSTRUCTIONS_FILE = path.join(HOME, '.copilot', 'copilot-instructions.md');
 const REVIEW_PROMPT_FILE = path.join(__dirname, 'completion-review-prompt.md');
 
-function maxCycles(env = process.env) {
-  const raw = env.COMPLETION_REVIEW_CYCLES;
-  return /^\d+$/.test(raw ?? '') ? Number(raw) : DEFAULT_REVIEW_CYCLES;
+/** Count the number of cycle-specific level-2 headings in the prompt. */
+function countCycles(prompt) {
+  const headings = prompt.match(/^## (?:Cycle \d+|Final cycle)\b/gm);
+  return headings ? headings.length : 0;
 }
 
 /**
@@ -43,27 +42,54 @@ function selectSection(prompt, cycle, max) {
   return [intro, wanted && wanted.trim()].filter(Boolean).join('\n\n');
 }
 
+/** Extract a section from a markdown file by its level-2 heading name. */
+function extractSection(content, sectionName) {
+  const escaped = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`^## ${escaped}\\b[\\s\\n]*([\\s\\S]*?)(?=^## \\b|$)`, 'gm');
+  const match = regex.exec(content);
+  if (!match) return null;
+  return match[1].trim();
+}
+
+/** Resolve all {reference:file:section} placeholders in text. */
+function resolveReferences(text) {
+  return text.replace(/\{reference:(.+?):([^}]+?)\}/g, (match, file, section) => {
+    const filePath = path.resolve(path.dirname(REVIEW_PROMPT_FILE), file);
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const extracted = extractSection(content, section);
+      if (extracted) {
+        return extracted;
+      }
+      return `[Reference not found: ${file}:${section}]`;
+    } catch {
+      return `[Reference not found: ${file}:${section}]`;
+    }
+  });
+}
+
+/** Build the full review prompt for a given cycle: section text + resolved references. */
+function buildPrompt(prompt, cycle, max) {
+  let section = selectSection(prompt, cycle, max);
+  section = resolveReferences(section);
+  return section;
+}
+
 function readState(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')).cycle; } catch { return null; }
 }
 
-function handleStop(event, { stateFile, max }) {
+function handleStop(event, { stateFile, prompt }) {
+  const max = countCycles(prompt);
+  if (max === 0) {
+    return { continue: true, systemMessage: 'Completion review skipped: no cycle headings found in prompt.' };
+  }
+
   const { cycle, action } = decide(readState(stateFile), event, max);
   if (action === 'unknown') {
     return { continue: true, systemMessage: 'Completion review skipped: Stop event has no boolean stop_hook_active.' };
   }
   if (action === 'allow') return { continue: true };
-
-  let practices, prompt;
-  try {
-    practices = fs.readFileSync(INSTRUCTIONS_FILE, 'utf8').trim();
-    prompt = fs.readFileSync(REVIEW_PROMPT_FILE, 'utf8').trim();
-  } catch (error) {
-    return { continue: true, systemMessage: `Completion review skipped: ${error.message}` };
-  }
-  if (!practices || !prompt) {
-    return { continue: true, systemMessage: 'Completion review skipped: instructions or review prompt file is empty.' };
-  }
 
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify({ cycle, updated_at: new Date().toISOString() }));
@@ -71,7 +97,7 @@ function handleStop(event, { stateFile, max }) {
     hookSpecificOutput: {
       hookEventName: 'Stop',
       decision: 'block',
-      reason: `COMPLETION REVIEW — CYCLE ${cycle}/${max} (do not stop yet)\n\n${practices}\n\n${selectSection(prompt, cycle, max)}\n`
+      reason: `COMPLETION REVIEW — CYCLE ${cycle}/${max} (do not stop yet)\n\n${buildPrompt(prompt, cycle, max)}\n`
     }
   };
 }
@@ -81,7 +107,7 @@ function stateFileFor(sessionId) {
   return path.join(HOME, '.copilot', 'hooks', '.state', `completion-${key}.json`);
 }
 
-module.exports = { decide, selectSection, handleStop, maxCycles, stateFileFor };
+module.exports = { decide, selectSection, buildPrompt, resolveReferences, extractSection, handleStop, countCycles, stateFileFor };
 
 if (require.main === module) {
   let input = '';
@@ -92,7 +118,11 @@ if (require.main === module) {
     try {
       const event = JSON.parse(input);
       out = event.hook_event_name === 'Stop'
-        ? handleStop(event, { stateFile: stateFileFor(event.session_id || process.env.VSCODE_AGENT_SESSION_ID || 'default-session'), max: maxCycles() })
+        ? (() => {
+            let prompt;
+            try { prompt = fs.readFileSync(REVIEW_PROMPT_FILE, 'utf8').trim(); } catch { prompt = ''; }
+            return handleStop(event, { stateFile: stateFileFor(event.session_id || process.env.VSCODE_AGENT_SESSION_ID || 'default-session'), prompt });
+          })()
         : { continue: true };
     } catch (error) {
       out = { continue: true, systemMessage: `Completion review hook error: ${error.message}` };
