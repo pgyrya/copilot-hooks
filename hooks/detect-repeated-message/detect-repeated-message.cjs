@@ -13,17 +13,19 @@ process.stdin.on('end', () => {
   try {
     const event = JSON.parse(input);
 
-    // This hook is registered at PreToolUse, not at Stop.
-    if (event.hook_event_name !== 'PreToolUse') {
+    if (event.hook_event_name !== 'PreToolUse' && event.hook_event_name !== 'Stop') {
       process.stdout.write(
         JSON.stringify({
           continue: true,
-          systemMessage:
-            'detect-repeated-message is configured to run at PreToolUse, not at ' +
-            event.hook_event_name +
-            '.'
+          systemMessage: 'detect-repeated-message is not configured for ' + event.hook_event_name + '.'
         })
       );
+      return;
+    }
+
+    // A Stop retry must not be blocked again, even if the transcript still contains the loop.
+    if (event.hook_event_name === 'Stop' && event.stop_hook_active !== false) {
+      process.stdout.write(JSON.stringify({ continue: true }));
       return;
     }
 
@@ -48,36 +50,69 @@ process.stdin.on('end', () => {
 
     // Try parsing as JSON first (structured transcript)
     let messages = [];
+    let toolCalls = [];
     let parsed;
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
       // Fall back to JSONL parsing (one JSON object per line, or adjacent JSON)
       messages = parseJsonl(raw);
+      toolCalls = parseJsonlToolCalls(raw);
       if (messages.length === 0) {
-        process.stdout.write(JSON.stringify({ continue: true }));
-        return;
+        if (toolCalls.length === 0) {
+          process.stdout.write(JSON.stringify({ continue: true }));
+          return;
+        }
       }
     }
 
     if (parsed && !Array.isArray(parsed)) {
       messages = extractAssistantMessages(parsed);
+      toolCalls = extractToolCalls(parsed);
     }
 
-    if (messages.length < 2) {
-      process.stdout.write(JSON.stringify({ continue: true }));
-      return;
-    }
+    const currentToolCall = event.hook_event_name === 'PreToolUse'
+      ? toolCallSignature(event.tool_name, event.tool_input)
+      : null;
+    const repeatedToolCycleLength = currentToolCall
+        ? findRepeatedCycleLength([...toolCalls, currentToolCall])
+        : null;
 
-    // Check if the last two messages are identical (only check the most recent pair)
-    const lastMsg = messages[messages.length - 1];
-    const secondLastMsg = messages[messages.length - 2];
-    if (lastMsg === secondLastMsg) {
+    const repeatedCycleLength = messages.length >= 2 ? findRepeatedCycleLength(messages) : null;
+    if (repeatedCycleLength !== null) {
+      const cycleDescription = `${repeatedCycleLength}-message agent cycle`;
+      if (event.hook_event_name === 'Stop') {
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'Stop',
+              decision: 'block',
+              reason:
+                `Detected a repeated ${cycleDescription}. Do not repeat the previous responses. ` +
+                'Provide one concise, clean summary of the result, attempts, and any blocker.'
+            }
+          })
+        );
+        return;
+      }
+
       process.stdout.write(
         JSON.stringify({
           continue: false,
           stopReason:
-            'Detected identical consecutive agent message. The agent appears to be stuck in a repeating loop.'
+            `Detected a repeated ${cycleDescription}. The agent appears to be stuck in a repeating loop.`
+        })
+      );
+      return;
+    }
+
+    if (repeatedToolCycleLength !== null) {
+      process.stdout.write(
+        JSON.stringify({
+          continue: false,
+          stopReason:
+            `Detected a repeated ${repeatedToolCycleLength}-call tool cycle (${event.tool_name}). ` +
+            'The agent appears to be stuck in a repeating loop.'
         })
       );
       return;
@@ -88,6 +123,21 @@ process.stdin.on('end', () => {
     process.stdout.write(JSON.stringify({ continue: true }));
   }
 });
+
+/** Return the length of a repeated 1-3 message cycle at the end of the transcript. */
+function findRepeatedCycleLength(messages) {
+  for (let cycleLength = 1; cycleLength <= 3; cycleLength++) {
+    const repeatedLength = cycleLength * 2;
+    if (messages.length < repeatedLength) continue;
+
+    const firstCycleStart = messages.length - repeatedLength;
+    const secondCycleStart = firstCycleStart + cycleLength;
+    const firstCycle = messages.slice(firstCycleStart, secondCycleStart);
+    const secondCycle = messages.slice(secondCycleStart);
+    if (firstCycle.every((message, index) => message === secondCycle[index])) return cycleLength;
+  }
+  return null;
+}
 
 // ============================================================================
 // Parsing helpers
@@ -109,6 +159,10 @@ function parseJsonl(content) {
     // Try parsing as a single JSON object
     try {
       const obj = JSON.parse(trimmed);
+      if (isUserMessage(obj)) {
+        messages.length = 0;
+        continue;
+      }
       const msg = extractMessageFromObj(obj);
       if (msg) {
         messages.push(msg);
@@ -121,6 +175,10 @@ function parseJsonl(content) {
     // Handle adjacent JSON records without separators
     const objs = extractAdjacentJson(trimmed);
     for (const obj of objs) {
+      if (isUserMessage(obj)) {
+        messages.length = 0;
+        continue;
+      }
       const msg = extractMessageFromObj(obj);
       if (msg) {
         messages.push(msg);
@@ -129,6 +187,62 @@ function parseJsonl(content) {
   }
 
   return messages;
+}
+
+function parseJsonlToolCalls(content) {
+  const toolCalls = [];
+  const addRecord = record => {
+    if (isUserMessage(record)) {
+      toolCalls.length = 0;
+      return;
+    }
+    const signature = extractToolCallSignature(record);
+    if (signature) toolCalls.push(signature);
+  };
+
+  for (const line of content.split(/\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      addRecord(JSON.parse(trimmed));
+    } catch (error) {
+      for (const record of extractAdjacentJson(trimmed)) addRecord(record);
+    }
+  }
+  return toolCalls;
+}
+
+function extractToolCalls(obj) {
+  const toolCalls = [];
+  const events = Array.isArray(obj.events) ? obj.events : [obj];
+
+  for (const event of events) {
+    if (isUserMessage(event)) {
+      toolCalls.length = 0;
+      continue;
+    }
+    const signature = extractToolCallSignature(event);
+    if (signature) toolCalls.push(signature);
+  }
+  return toolCalls;
+}
+
+function extractToolCallSignature(event) {
+  if (event.type !== 'tool.execution_start' || !event.data) return null;
+  return toolCallSignature(event.data.toolName, event.data.arguments);
+}
+
+function toolCallSignature(name, input) {
+  if (typeof name !== 'string' || !name) return null;
+  return `${name}:${canonicalize(input === undefined ? {} : input)}`;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 /**
@@ -221,6 +335,11 @@ function extractAssistantMessages(obj) {
   // Format: { events: [...] } — common VS Code transcript format
   if (Array.isArray(obj.events)) {
     for (const event of obj.events) {
+      if (isUserMessage(event)) {
+        messages.length = 0;
+        continue;
+      }
+
       // Skip tool_result events (they may contain assistant-shaped data but are not actual messages)
       if (event.type === 'tool_result' || event.type === 'tool') {
         continue;
@@ -253,6 +372,10 @@ function extractAssistantMessages(obj) {
   // Format: { messages: [...] } — generic chat format
   if (Array.isArray(obj.messages)) {
     for (const msg of obj.messages) {
+      if (isUserMessage(msg)) {
+        messages.length = 0;
+        continue;
+      }
       if (isAssistantRole(msg)) {
         const text = extractTextFromMessage(msg);
         if (text) {
@@ -265,6 +388,9 @@ function extractAssistantMessages(obj) {
   // Format: { requests: [...] } — request/response transcript format
   if (Array.isArray(obj.requests)) {
     for (const req of obj.requests) {
+      if (typeof req.message === 'string' || typeof req.prompt === 'string') {
+        messages.length = 0;
+      }
       if (req.response) {
         const text = extractResponseText(req.response);
         if (text) {
@@ -281,6 +407,11 @@ function extractAssistantMessages(obj) {
  * Extract a message string from a JSONL record object.
  */
 function extractMessageFromObj(obj) {
+  // VS Code transcript event: { type: 'assistant.message', data: { content: '...' } }
+  if (obj.type === 'assistant.message' && obj.data && typeof obj.data.content === 'string') {
+    return obj.data.content || null;
+  }
+
   // Format: { role: 'assistant' or 'bot', content: '...' }
   if ((obj.role === 'assistant' || obj.role === 'bot') && typeof obj.content === 'string') {
     return obj.content;
@@ -321,6 +452,11 @@ function extractMessageFromObj(obj) {
  * Extract a message string from a structured event object.
  */
 function extractMessageFromEvent(event) {
+  // VS Code transcript event
+  if (event.type === 'assistant.message' && event.data && typeof event.data.content === 'string') {
+    return event.data.content || null;
+  }
+
   // assistant_message event
   if (event.type === 'assistant_message' && event.data) {
     if (event.data.author && event.data.author.name === 'assistant' && event.data.body) {
@@ -356,6 +492,21 @@ function isAssistantRole(msg) {
   if (msg.speaker === 'copilot') return true;
   if (msg.author && msg.author.name === 'assistant') return true;
   return false;
+}
+
+/** Check whether a transcript record marks the start of a new user turn. */
+function isUserMessage(msg) {
+  if (!msg || typeof msg !== 'object') return false;
+  if (
+    msg.role === 'user' ||
+    msg.speaker === 'user' ||
+    (msg.author && msg.author.name === 'user') ||
+    msg.type === 'user_message' ||
+    msg.type === 'user.message'
+  ) {
+    return true;
+  }
+  return Boolean(msg.data && isUserMessage(msg.data));
 }
 
 /**

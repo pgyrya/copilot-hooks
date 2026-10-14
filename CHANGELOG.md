@@ -4,6 +4,9 @@ Please only keep a high-level note on the most relevant changes in this log, org
 
 ## Changes
 
+### 2026-10-13 — Detect repeated tool-call cycles
+- Added PreToolUse detection for repeated tool signatures using tool name and canonicalized arguments, independent of assistant reasoning text and turn boundaries; handles standalone JSON tool events and includes regression coverage for identical calls and repeated multi-call cycles.
+
 ### 2026-10-07 — Completion review hook: fix endless `1/2 → 2/2 → 1/2` blocking
 - **Bug**: the agent was blocked indefinitely. The hook restarted its cycle count on any `UserPromptSubmit` with a new prompt once the last cycle was reached, but VS Code also fires `UserPromptSubmit` for the subagent prompts the review itself asks for (visible in the *GitHub Copilot Chat Hooks* log: 103 restarts vs 3 allowed stops across recorded sessions). The earlier "preserve incomplete cycle" patches only hid it for cycles below the maximum.
 - **Fix**: the hook now counts only `Stop` events and uses the harness-provided `stop_hook_active` flag to detect a new turn; `UserPromptSubmit` is no longer registered. Fails open if the flag is missing.

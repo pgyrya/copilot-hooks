@@ -6,6 +6,13 @@
         "command": "node ~/.copilot/hooks/detect-repeated-message/detect-repeated-message.cjs",
         "timeout": 10
       }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ~/.copilot/hooks/detect-repeated-message/detect-repeated-message.cjs",
+        "timeout": 10
+      }
     ]
   }
 }
