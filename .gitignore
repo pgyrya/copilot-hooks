@@ -3,3 +3,4 @@ logs/
 session-state/
 ide/
 config.json
+session/
