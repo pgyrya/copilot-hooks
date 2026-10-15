@@ -4,9 +4,9 @@ As a way to verify what is done, we need specific verifiable evidence that you h
 
 Please also keep a consistent checklist across this workflow using task planning tool for transparency, removing things that are not done but no longer relevant, while keeping what was done and what is still to be done.
 
-Please focus on a single cycle review as instructed below, then call it done - this way this harness can provide you specific instructions/reminders for the next phase.
+Only execute one cycle review as defined below including the follow-ups you identify, then stop to await further instructions from the harness.
 
-## Cycle 1: Revisit the goals
+## Cycle 1: Reflect on your work
 
 Take a step back to reflect on what is expected:
 1. What: Restate the user's original request in your own words. In which context did it come up? What was the objective and why do you think it was important [intent]?
