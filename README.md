@@ -2,23 +2,23 @@
 
 ## Introduction
 
-The objective of this repo is to share a working setup and best practices around how we can aim to make even local agentic development with VS Code Copilot practical and effective.
+This initiative has grown out of initial frustration with even the best locally-deployable agentic systems claiming the clearly-formulated work was done only to find out that it may take more developers' time to review the work than to write it from scratch, and/or iterate with AI assistant, always pointing out what's wrong just to get more issues and blind spots in the resulting code.
 
-This initiative has grown out of frustration with even the best locally-deployable agentic systems claiming the clearly-formulated work only to find out that it may take more developers' time to review the work than to write it from scratch, and/or iterate with AI assistant, always pointing out what's wrong just to get more issues in the resulting code.
-
-The big labs' proposed solution is to build and sell us much more capable models, however they are very expensive to run.
+The big labs' proposed solution is to build and sell us the use of much more capable models, however they do get expensive to run and have a fundamental issue of sending our potentially sensitive data out in the open.
 
 As of 2026, there are already models that are capable or comfortable reasoning and fluently driving agentic workflows - and in a local setup they can read and write faster than humans. If we are not getting good results with them - perhaps it is because we have not yet learned to optimally utilize their abilities for our cause?
 
 ## Mission
 
-The objective is to learn to effectively outsource significant volume of cognitive work we are used to as developers - to even locally deployed LLM models in the context of using Copilot in an autopilot mode.
+The mission of this repo is to learn to effectively outsource significant volume of cognitive work we are used to as developers - to even locally deployed LLM models in the context of using Copilot in an autopilot mode.
+
+It shares a working setup and best practices around how we can aim to make even local agentic development with VS Code Copilot practical and effective - by strategically injecting focus in the interaction with the agent.
 
 This could unlock "iterative local development" and perhaps even "recursive self improvement" of this toolset - which can then be applied to help focus the work of both local and state-of-the art language models.
 
 Specifically, the goal is to have these Copilot sessions produce meaningful improvements, at a configurable cost of more compute time, rather than creating more blind spots and more issues than they are solving.
 
-As a side effect, we may be synthesizing a solid set of instructions that can make us personally become productive in contributing to a common code base.
+As a side effect of this approach, we may be synthesizing a solid set of instructions that can make us personally become productive in contributing to a common code base.
 
 Perhaps as we polish this approach, we can fully benefit from local development - and even start heating our homes with useful local GPU workflows rather than relying on big data centers that contribute to global warming effect.
 
