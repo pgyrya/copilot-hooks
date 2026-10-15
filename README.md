@@ -49,7 +49,7 @@ Add this repository to your existing `~/.copilot` directory. VS Code reads the i
 ```bash
 cd ~/.copilot
 git init
-git remote add origin https://github.com/pgyrya/.copilot/
+git remote add origin https://github.com/pgyrya/copilot-hooks/
 git fetch origin/main
 git checkout -b main origin/main
 ```
