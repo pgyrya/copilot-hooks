@@ -333,5 +333,4 @@ If you use Agent Host sessions (e.g., Copilot in the Agents window), enable BYOK
 
 - [Contributing](./CONTRIBUTING.md) - instructions around how to contribute to the project
 - [Learnings](./LEARNINGS.md) - high-level concise learnings worth sharing across developers
-- [llama_cpp](../llama_cpp/README.md) - complete local LLM setup with Docker, CUDA, and MCP integration
-
+- [llama_cpp_for_local_agents](https://github.com/pgyrya/llama_cpp_for_local_agents)  repository - complete local LLM setup with Docker, CUDA, and MCP integration
