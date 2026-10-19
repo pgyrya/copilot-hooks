@@ -7,8 +7,8 @@
   - do not write "why this is sufficient" essays or test counts; keep a short "invariant -> test" list next to the tests.
   - it is 100x better to thoroughly plan and call out any incompletion than to pretend the work is complete.
   - test manually first (using the full suite of tools available to you), then translate the key checks (especially those that show issues) - into automated tests; when a bug shows up in real use, add the real event sequence as a test.
-- Use todo tool to keep track of tasks that need to be completed or revisited.
-  - The todo items should be clear, actionable, and regularly updated to reflect the current status of tasks.
+- Use task planning tool to keep track of tasks that need to be completed or revisited.
+  - The action items should be clear, actionable, and regularly updated to reflect the current status of tasks.
 - Also log the work envisioned in the repository according to the established practices and documentation guidelines.
   - Make sure to succinctly log improvement ideas, bugs, unresolved issues encountered during development and testing, so that they can be addressed and tracked effectively.
     - Find an optimal place to visibly and succinctly log this information in accordance to the project's established documentation practices and aligning to the extent possible with the pre-existing structure.
