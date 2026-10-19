@@ -12,20 +12,21 @@ Take a step back to reflect on what is expected:
 1. What: Restate the user's original request in your own words. In which context did it come up? What was the objective and why do you think it was important [intent]?
 2. How: Review the most relevant common practices from your instructions (AGENTS.md, README.md, CONTRIBUTING.md, general guidelines) and contextualize: how do those practices relate to what you delivered? What would be the ideal and most impactful way to apply these practices? What should you do differently to align your delivery with these expectations?
 3. Plan: Given your attention is limited, what would be the most impactful objectives to focus on in this cycle?
-4. Do: Proceed to execite the plan, using task planning checklist to keep yourself on track.
+4. Do: Proceed to execute the plan, using task planning checklist to keep yourself on track.
 
-## Cycle 2: Verify the key expectations are addressed
+---
+{reference:../../copilot-instructions.md:Best Practices}
+
+## Cycle 2: Define and tighten the tests
 
 Now suppose the user comes back and says: "this does not work."
 
 1. Define expected behavior: In one sentence each, write the invariants the work must uphold (what must be true no matter what else happens) - infer these from user stated objectives and inferred intent.
-2. Identify potential verification blind spots. List at least 3 most likely reasons the user would be right. Prefer things you did not control or observe: inputs, events, ordering, existing state, other tools/harnesses, real files. Look for real evidence (logs, traces, actual command output) before reasoning from memory.
+2. Identify potential verification blind spots. List all the plausible reasons the user may be right, given the current level of testing. Prefer things you did not control or observe: inputs, events, ordering, existing state, other tools/harnesses, real files. Look for real evidence (logs, traces, actual command output) before reasoning from memory.
 3. Verify whether blind spots have issues. For each, run a manual check and/or (ideally) write a test that would fail if the suspicion were true. Show: suspicion | what you ran | result.
-4. Fix what fails and verify. A fix needs a test that failed before it. If a suspicion cannot be checked here, say so and add it to task planning.
-
-If you cannot find significany plausible gaps - delegate this entire review (1-2) or 1-3 to a subagent:
-- give it the user's request verbatim and the invariants already identified, not your summary of what was done or whether it is "solid".
-- ask it to find how this fails, by running things.
+    - If a suspicion cannot be checked here, say so and add it to task planning.
+    - If you cannot find significany plausible gaps - delegate this entire review (1-2) or 1-3 to a subagent, providing all the context - user's request/intent and these instructions, the invariants already identified (if any).
+4. Fix what fails and verify. A fix needs a test that failed before it.
 
 ## Final cycle: Document, Polish, Follow-up, Respond
 
