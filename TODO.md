@@ -11,6 +11,7 @@ Here are some of the envisioned changes, in approximate order of importance (fro
 - Review in which scenarios to suggest/demand/trigger subagent review to balance focus & quality
     - Currently we suggest an agent trigger subagent review if it cannot find significany plausible gaps, but this may not be totally reliable - consider triggering the review automatically as part of the stop hook; however, this needs to be done carefully so as to include the right scope into this review task.
     - Also, the process asks the agent to brief a subagent itself; the brief may be author-biased ("verify everything is solid"). Consider generating the brief from the hook (user request verbatim + invariants) as part of the existing "review automatically from the stop hook" idea above.
+- Add a hook to re-try once in response to header timeout error - this can help if the LLM server spends time on some work that will not be repeated
 
 ## Low Priority
 
