@@ -42,13 +42,31 @@ function selectSection(prompt, cycle, max) {
   return [intro, wanted && wanted.trim()].filter(Boolean).join('\n\n');
 }
 
-/** Extract a section from a markdown file by its level-2 heading name. */
+/** Extract a section from a markdown file by its level-1 or level-2 heading name. */
 function extractSection(content, sectionName) {
   const escaped = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`^## ${escaped}\\b[\\s\\n]*([\\s\\S]*?)(?=^## \\b|$)`, 'gm');
-  const match = regex.exec(content);
-  if (!match) return null;
-  return match[1].trim();
+  
+  // Split by level-1 headings first
+  const l1Parts = content.split(/^# /m);
+  for (const part of l1Parts) {
+    if (part.startsWith(`${sectionName}\n`) || part.startsWith(`${sectionName}\r\n`)) {
+      // Return the heading + everything under it
+      const full = `# ${part.trim()}`;
+      return full.trim() || null;
+    }
+  }
+  
+  // Not level-1, try level-2
+  const l2Parts = content.split(/^(?=^## )/m);
+  for (const part of l2Parts) {
+    const headingRegex = new RegExp(`^## ${escaped}\\b`);
+    if (headingRegex.test(part)) {
+      // Return the heading + everything under it
+      return part.trim() || null;
+    }
+  }
+  
+  return null;
 }
 
 /** Resolve all {reference:file:section} placeholders in text. */

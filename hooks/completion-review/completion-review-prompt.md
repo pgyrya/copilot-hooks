@@ -28,5 +28,5 @@ For some persistent issues you cannot immediately fix, ask for ideas from a suba
 Note: do not run operations that may destroy the work done earlier (e.g. remove files). If relevant, write these planned commands down for the end user to execute, including from which folder they must be executed.
 
 ---
-{reference:../../copilot-instructions.md:Best Practices}
+{reference:../../copilot-instructions.md:Guidelines}
 

@@ -171,8 +171,8 @@ describe('hook process — real events', () => {
       if (i === MAX) {
         assert.match(out, /## Final cycle/);
         assert.doesNotMatch(out, /## Cycle 1/);
-        // Final cycle should contain the resolved Best Practices section from copilot-instructions.md
-        assert.match(out, /Follow the general coding/);
+        // Final cycle should contain the resolved General Principles section from copilot-instructions.md
+        assert.match(out, /Track tasks with session-transient tools/);
       } else {
         assert.doesNotMatch(out, /## Final cycle/);
       }
@@ -292,8 +292,10 @@ describe('shipped files', () => {
   });
 
   test('resolveReferences: valid reference is resolved', () => {
-    const result = resolveReferences('Hello {reference:../../copilot-instructions.md:Best Practices}');
-    assert.match(result, /Follow the general coding/);
+    const result = resolveReferences('Hello {reference:../../copilot-instructions.md:General Principles}');
+    assert.match(result, /Track tasks with session-transient tools/);
+    assert.match(result, /Log bugs, unresolved issues/);
+    assert.match(result, /Plan before acting/);
   });
 
   test('resolveReferences: missing file produces warning', () => {
@@ -312,12 +314,43 @@ describe('shipped files', () => {
   });
 
   test('extractSection: extracts content between level-2 headings', () => {
-    const content = '# Title\n## Section 1\nContent 1\n## Section 2\nContent 2\n';
-    assert.equal(extractSection(content, 'Section 1'), 'Content 1');
-    assert.equal(extractSection(content, 'Section 2'), 'Content 2');
+    const content = '# Title\n## Section 1\nContent 1\n- More content\n\nAnother paragraph\n## Section 2\nContent 2\n';
+    assert.equal(extractSection(content, 'Section 1'), '## Section 1\nContent 1\n- More content\n\nAnother paragraph');
+    assert.equal(extractSection(content, 'Section 2'), '## Section 2\nContent 2');
+  });
+
+  test('extractSection: extracts content under level-1 headings', () => {
+    const content = '# Guidelines\n\n## Project Context\n\nRead AGENTS.md\n\n## General Principles\n\nTrack tasks\n';
+    assert.equal(extractSection(content, 'Guidelines'), '# Guidelines\n\n## Project Context\n\nRead AGENTS.md\n\n## General Principles\n\nTrack tasks');
   });
 
   test('extractSection: returns null for missing section', () => {
     assert.equal(extractSection('## Existing\nContent', 'Missing'), null);
+  });
+
+  test('extractSection: handles Windows line endings', () => {
+    const content = '# Guidelines\r\n\r\n## Project Context\r\nContent';
+    assert.ok(extractSection(content, 'Guidelines').startsWith('# Guidelines'));
+  });
+
+  test('extractSection: handles special characters in section name', () => {
+    const content = '# Section [1]\nContent\n# Section [2]\nMore';
+    assert.equal(extractSection(content, 'Section [1]'), '# Section [1]\nContent');
+  });
+
+  test('extractSection: handles empty section (heading only)', () => {
+    const content = '# Empty\n\n# NonEmpty\nContent';
+    assert.equal(extractSection(content, 'Empty'), '# Empty');
+  });
+
+  test('extractSection: escapes regex special characters', () => {
+    const content = '# Section (1)\nContent\n# Section (2)\nMore';
+    assert.equal(extractSection(content, 'Section (1)'), '# Section (1)\nContent');
+  });
+
+  test('extractSection: includes deeply nested content', () => {
+    const content = '# Top\n## Level 2\n### Level 3\n#### Level 4\nContent';
+    const result = extractSection(content, 'Top');
+    assert.ok(result.includes('### Level 3'));
   });
 });
