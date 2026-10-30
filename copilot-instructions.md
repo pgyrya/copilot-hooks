@@ -4,6 +4,8 @@
 
 Read and follow `AGENTS.md`, `README.md`, `CONTRIBUTING.md` in the target repository before making changes. Inspect existing examples to align with established patterns.
 
+Naming and folder placement for new files should be intuitive to allow readers to quickly understand their context and anticipate the content. Use consistent casing and separators as per project conventions.
+
 ## General Principles
 
 - Plan before acting — infer intent, review dependencies, optimize scope and define success criteria before making changes.
